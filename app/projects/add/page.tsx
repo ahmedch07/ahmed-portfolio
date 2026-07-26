@@ -62,7 +62,7 @@ export default function AddProjectPage() {
           {error && <div className="text-red-400">{error}</div>}
 
           <div>
-            <button type="submit" disabled={loading} className="rounded-full bg-cyan-500 px-6 py-3 text-black font-semibold">
+            <button type="submit" disabled={loading} className="rounded-full bg-cyan-500 border-0 border-transparent shadow-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-0 px-6 py-3 text-black font-semibold">
               {loading ? 'Adding...' : 'Add Project'}
             </button>
           </div>

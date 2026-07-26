@@ -31,7 +31,7 @@ export default function ProjectsPage() {
         ))}
         {isAdmin ? (
           <div className="flex items-center justify-center rounded-xl bg-cyan-950 p-6">
-            <Link href="/projects/add" className="rounded-full bg-cyan-500 px-8 py-4 text-black font-semibold">Add Project</Link>
+            <Link href="/projects/add" className="rounded-full bg-cyan-500 border-0 border-transparent shadow-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-0 px-8 py-4 text-black font-semibold">Add Project</Link>
           </div>
         ) : null}
       </div>

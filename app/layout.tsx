@@ -31,6 +31,7 @@ export default function RootLayout({
         <nav className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur px-8 py-4">
           <div className="flex justify-end gap-8 text-white font-semibold">
             <Link href="/" className="hover:text-cyan-400">Home</Link>
+            <Link href="/about" className="hover:text-cyan-400">About</Link>
             <Link href="/projects" className="hover:text-cyan-400">Projects</Link>
             <Link href="/contact" className="hover:text-cyan-400">Contact</Link>
           </div>

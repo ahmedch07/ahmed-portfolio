@@ -1,129 +1,125 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs/promises'
-import path from 'path'
+import dbConnect from '@/lib/mongodb'
+import Project, { generateSlug, normalizeImageUrl } from '@/lib/models/Project'
+import { verifyAdminSession } from '@/lib/auth'
 
-const filePath = path.join(process.cwd(), 'app', 'projects.json')
-
-const ADMIN_SECRET = process.env.NEXT_ADMIN_SECRET || process.env.NEXT_PUBLIC_ADMIN_SECRET || ''
-function isAuthorized(req: Request) {
-  const secret = req.headers.get('x-admin-secret') || ''
-  return ADMIN_SECRET && secret === ADMIN_SECRET
-}
-
-function normalizeImageUrl(value: unknown) {
-  if (!value || typeof value !== 'string') return ''
-  const url = value.trim()
-  if (url.includes('github.com') && url.includes('/blob/')) {
-    return url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/')
+// GET /api/projects — public, returns all projects
+export async function GET() {
+  try {
+    await dbConnect()
+    const projects = await Project.find({}).sort({ createdAt: -1 }).lean()
+    return NextResponse.json(projects)
+  } catch (err: unknown) {
+    return NextResponse.json({ error: String(err) }, { status: 500 })
   }
-  return url
 }
 
-async function readProjects() {
-  const raw = await fs.readFile(filePath, 'utf8')
-  return JSON.parse(raw)
-}
-
+// POST /api/projects — admin only, create project
 export async function POST(req: Request) {
-    if (!isAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    try {
+  if (!(await verifyAdminSession(req))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+  try {
+    await dbConnect()
     const body = await req.json()
-    const { title, image, description, tech } = body
+    const { title, image, description, details, tech } = body
+
     if (!title || !description) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const projects = await readProjects()
-
-    const slugBase = title
-      .toString()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '')
-
-    let id = slugBase
-    let i = 1
-    while (projects.some((p: any) => p.id === id)) {
-      id = `${slugBase}-${i++}`
-    }
-
-    const techArray = Array.isArray(tech)
+    const techArray: string[] = Array.isArray(tech)
       ? tech
       : typeof tech === 'string'
-      ? tech.split(',').map((s) => s.trim()).filter(Boolean)
+      ? tech.split(',').map((s: string) => s.trim()).filter(Boolean)
       : []
 
-    const newProject = {
-      id,
-      title,
-      description,
-      image: normalizeImageUrl(image),
-      details: description,
-      tech: techArray,
+    // Generate a unique slug
+    const slugBase = generateSlug(title)
+    let slug = slugBase
+    let i = 1
+    while (await Project.exists({ slug })) {
+      slug = `${slugBase}-${i++}`
     }
 
-    projects.push(newProject)
-    await fs.writeFile(filePath, JSON.stringify(projects, null, 2), 'utf8')
+    const project = await Project.create({
+      slug,
+      title,
+      description,
+      details: details || description,
+      image: normalizeImageUrl(image),
+      tech: techArray,
+    })
 
-    return NextResponse.json({ ok: true, project: newProject })
-  } catch (err: any) {
+    return NextResponse.json({ ok: true, project })
+  } catch (err: unknown) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
 }
 
+// PATCH /api/projects — admin only, update project
 export async function PATCH(req: Request) {
-  if (!isAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await verifyAdminSession(req))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
   try {
+    await dbConnect()
     const body = await req.json()
     const { id, title, image, description, details, tech } = body
+
     if (!id || !title || !description) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const projects = await readProjects()
-    const index = projects.findIndex((p: any) => p.id === id)
-    if (index === -1) {
+    const techArray: string[] = Array.isArray(tech)
+      ? tech
+      : typeof tech === 'string'
+      ? tech.split(',').map((s: string) => s.trim()).filter(Boolean)
+      : []
+
+    const project = await Project.findByIdAndUpdate(
+      id,
+      {
+        title,
+        description,
+        details: details || description,
+        image: normalizeImageUrl(image),
+        tech: techArray,
+      },
+      { new: true }
+    )
+
+    if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    const techArray = Array.isArray(tech)
-      ? tech
-      : typeof tech === 'string'
-      ? tech.split(',').map((s) => s.trim()).filter(Boolean)
-      : []
-
-    projects[index] = {
-      ...projects[index],
-      title,
-      description,
-      details,
-      image: normalizeImageUrl(image),
-      tech: techArray,
-    }
-
-    await fs.writeFile(filePath, JSON.stringify(projects, null, 2), 'utf8')
-    return NextResponse.json({ ok: true, project: projects[index] })
-  } catch (err: any) {
+    return NextResponse.json({ ok: true, project })
+  } catch (err: unknown) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
 }
 
+// DELETE /api/projects — admin only, delete project
 export async function DELETE(req: Request) {
-  if (!isAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  if (!(await verifyAdminSession(req))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
   try {
+    await dbConnect()
     const body = await req.json()
     const { id } = body
-    if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
-    const projects = await readProjects()
-    const filtered = projects.filter((p: any) => p.id !== id)
-    if (filtered.length === projects.length) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!id) {
+      return NextResponse.json({ error: 'Missing id' }, { status: 400 })
     }
 
-    await fs.writeFile(filePath, JSON.stringify(filtered, null, 2), 'utf8')
+    const result = await Project.findByIdAndDelete(id)
+    if (!result) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    }
+
     return NextResponse.json({ ok: true })
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
 }

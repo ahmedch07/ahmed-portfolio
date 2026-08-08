@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Lock, Eye, EyeOff, Loader2, User, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, Loader2, User, ShieldCheck } from 'lucide-react'
 
 export default function AdminLoginForm() {
   const router = useRouter()

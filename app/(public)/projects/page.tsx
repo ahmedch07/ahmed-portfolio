@@ -2,12 +2,21 @@ import dbConnect from "@/lib/mongodb";
 import Project from "@/lib/models/Project";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Sparkles, FolderKanban } from "lucide-react";
+import { ArrowRight, FolderKanban } from "lucide-react";
 
-async function getProjects() {
+interface ProjectItem {
+  _id: { toString(): string };
+  slug?: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  tech?: string[];
+}
+
+async function getProjects(): Promise<ProjectItem[]> {
   await dbConnect();
-  const projects = await Project.find({}).sort({ createdAt: -1 }).lean();
-  return projects;
+  const rawProjects = await Project.find({}).sort({ createdAt: -1 }).lean();
+  return (rawProjects as unknown) as ProjectItem[];
 }
 
 export const metadata = {
@@ -16,7 +25,7 @@ export const metadata = {
 };
 
 export default async function ProjectsPage() {
-  let projects: any[] = [];
+  let projects: ProjectItem[] = [];
   let dbError = false;
 
   try {
@@ -62,61 +71,55 @@ export default async function ProjectsPage() {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {projects.map((project) => {
-            const p = project as {
-              _id: { toString: () => string };
-              slug?: string;
-              title?: string;
-              description?: string;
-              image?: string;
-              tech?: string[];
-            };
-            return (
-              <Link
-                key={p._id.toString()}
-                href={`/projects/${p.slug || p._id.toString()}`}
-                className="group flex flex-col justify-between rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-6 transition-all duration-300 hover:border-cyan-500/50 hover:bg-slate-900/90 hover:shadow-2xl hover:shadow-cyan-500/10 hover:-translate-y-1.5"
-              >
-                <div className="space-y-4">
-                  {p.image && (
-                    <div className="h-48 w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={p.image}
-                        alt={p.title || "Project image"}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    </div>
-                  )}
-
-                  <h3 className="text-xl font-bold text-white group-hover:text-cyan-400 transition-colors line-clamp-2">{p.title}</h3>
-
-                  <p className="text-slate-400 text-sm leading-relaxed line-clamp-3">{p.description}</p>
-                </div>
-
-                <div className="pt-6 space-y-4 border-t border-slate-800/60 mt-6">
-                  {(p.tech || []).length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {(p.tech || []).map((t) => (
-                        <Badge
-                          key={t}
-                          variant="secondary"
-                          className="bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-xs px-2.5 py-0.5 rounded-lg"
-                        >
-                          {t}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-1.5 text-sm font-semibold text-cyan-400 group-hover:text-cyan-300 transition-colors">
-                    <span>View Project Details</span>
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          {projects.map((project) => (
+            <Link
+              key={project._id.toString()}
+              href={`/projects/${project.slug || project._id.toString()}`}
+              className="group flex flex-col justify-between rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-6 transition-all duration-300 hover:border-cyan-500/50 hover:bg-slate-900/90 hover:shadow-2xl hover:shadow-cyan-500/10 hover:-translate-y-1.5"
+            >
+              <div className="space-y-4">
+                {project.image && (
+                  <div className="h-48 w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={project.image}
+                      alt={project.title || "Project image"}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
                   </div>
+                )}
+
+                <h3 className="text-xl font-bold text-white group-hover:text-cyan-400 transition-colors line-clamp-2">
+                  {project.title}
+                </h3>
+
+                <p className="text-slate-400 text-sm leading-relaxed line-clamp-3">
+                  {project.description}
+                </p>
+              </div>
+
+              <div className="pt-6 space-y-4 border-t border-slate-800/60 mt-6">
+                {(project.tech || []).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(project.tech || []).map((t) => (
+                      <Badge
+                        key={t}
+                        variant="secondary"
+                        className="bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-xs px-2.5 py-0.5 rounded-lg"
+                      >
+                        {t}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-1.5 text-sm font-semibold text-cyan-400 group-hover:text-cyan-300 transition-colors">
+                  <span>View Project Details</span>
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </div>
-              </Link>
-            );
-          })}
+              </div>
+            </Link>
+          ))}
         </div>
       )}
 
